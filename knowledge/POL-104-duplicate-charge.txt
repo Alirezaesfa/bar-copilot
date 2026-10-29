@@ -1,0 +1,24 @@
+# POL-104 Duplicate Charge
+
+Maplewave Telecom (fictional company, synthetic demo data) | Version 1.2 | Effective 2026-01-01 | Owner: Billing Operations
+
+## §1 Definition
+
+A duplicate charge is a charge that appears more than once for the same contract, with the same charge type and description, the same billing period and the same amount. The copies can be on one invoice, or on different invoices for the same billing period.
+
+## §2 Verification
+
+Before approving, check:
+
+- The quantity on the contract.
+- Whether the customer has more than one contract for the same service. Two lines for two different contracts are not duplicates.
+- Usage charges. Usage charges with different amounts are not duplicates.
+
+## §3 Calculation
+
+Credit = the amount of each extra copy of the charge. If the matching discount line was duplicated too, subtract it, so that the credit is the net amount.
+
+## §4 Evidence
+
+- The invoice ID
+- The billing period

@@ -1,0 +1,38 @@
+# POL-103 Promotion Not Applied
+
+Maplewave Telecom (fictional company, synthetic demo data) | Version 1.3 | Effective 2026-01-01 | Owner: Billing Operations
+
+## §1 Scope
+
+This policy covers a promotion recorded on the customer's contract whose monthly credit is missing, or lower than it should be, on an invoice during the promotion period.
+
+## §2 Eligibility
+
+A credit is due when all three conditions are met:
+
+- (a) The promotion code is recorded on the contract.
+- (b) The billing period falls within the promotion period recorded on the contract.
+- (c) The invoice has no promotional credit line for that contract, or a smaller one than the contract states.
+
+## §3 Calculation
+
+Credit = monthly promotional credit on the contract × number of billing periods where the credit is missing.
+
+If the credit was applied but was too small, credit the difference for that month instead.
+
+## §4 Not eligible
+
+- Promotions that are not recorded on the contract. A promotion cannot be added after signing through an adjustment request. The account team must use a contract amendment within the promotion's sign-up window.
+- Billing periods outside the promotion period.
+- Services the promotion does not cover.
+
+## §5 Promotion catalogue
+
+The promotions table lists the current promotions with their rules. In summary:
+
+| Code | Promotion |
+|---|---|
+| NEWBIZ6 | 50.00 per site per month for 6 months, on new Business Internet contracts of 24 months or more |
+| MOBSWITCH | 10.00 per line per month for 12 months, on new Mobility contracts of 24 months or more |
+| SIPSTART | 5.00 per channel per month for 6 months, on new SIP Trunking contracts of 24 months or more |
+| FIBRE3 | 15% of net MRC per month for 3 months, on new Dedicated Fibre contracts of 36 months or more |

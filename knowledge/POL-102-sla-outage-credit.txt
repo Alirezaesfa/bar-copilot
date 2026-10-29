@@ -1,0 +1,67 @@
+# POL-102 SLA Outage Credit
+
+Maplewave Telecom (fictional company, synthetic demo data) | Version 2.2 | Effective 2026-01-01 | Owner: Network Assurance and Billing Operations
+
+## §1 Eligible services
+
+SLA credits apply only to services that have an availability target in the contract (the SLA uptime %). The current targets are:
+
+| Service | Availability target |
+|---|---|
+| Business Internet 500 and Business Internet 1 Gbps | 99.5% |
+| SIP Trunking and Unified Communications | 99.9% |
+| Dedicated Fibre 1 Gbps and Dedicated Fibre 10 Gbps | 99.95% |
+
+The following services have no availability target and are not eligible for SLA credits:
+
+- Business Internet 100
+- Managed Wi-Fi
+- Mobility Unlimited
+- Mobility 20 GB
+
+## §2 Measuring availability
+
+Availability is measured for each affected unit (site, channel or seat), for each calendar month:
+
+Availability % = 100 × (1 − qualifying outage minutes in the month ÷ total minutes in the month)
+
+Add up all qualifying outages for the same contract in the same month. A 30-day month has 43,200 minutes, and a 31-day month has 44,640 minutes.
+
+## §3 Qualifying outages
+
+A qualifying outage is caused by the Maplewave network and is recorded in the outage records with a trouble ticket. These outages do not qualify:
+
+- Planned maintenance announced in advance
+- Outages caused by the customer's own equipment, power or premises
+- Force majeure events
+
+## §4 Credit tiers
+
+Shortfall = SLA target − measured availability, in percentage points.
+
+| Shortfall | Credit (share of the affected units' net MRC for that month) |
+|---|---|
+| 0 or less | No credit |
+| More than 0, up to 0.50 | 5% |
+| More than 0.50, up to 1.00 | 10% |
+| More than 1.00 | 25% |
+
+The credit is capped at 25% of the affected units' net MRC per month. Units that were not affected get no credit.
+
+## §5 Time limit
+
+The request must be submitted within 60 days after the outage ended. Later requests are not eligible, even if the outage qualified.
+
+## §6 Evidence
+
+- The outage trouble ticket ID
+- The number of affected units
+- The month of the outage
+
+## §7 Worked example
+
+A customer has SIP Trunking with 40 channels at 22.00 per channel, no contract discount and a 99.9% target. All 40 channels lost service for 300 minutes in a 30-day month.
+
+- Availability = 100 × (1 − 300 ÷ 43,200) = 99.306%
+- Shortfall = 99.9 − 99.306 = 0.594, so the 10% tier applies.
+- Credit = 22.00 × 40 × 10% = 88.00

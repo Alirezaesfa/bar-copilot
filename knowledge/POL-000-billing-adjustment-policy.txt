@@ -1,0 +1,76 @@
+# POL-000 Billing Adjustment Policy
+
+Maplewave Telecom (fictional company, synthetic demo data) | Version 3.1 | Effective 2026-01-01 | Owner: Billing Operations
+
+## §1 Purpose and scope
+
+This policy governs billing adjustment requests that account managers submit on behalf of business customers. A billing adjustment request asks Maplewave to credit a customer's account. It covers five request types, each with its own policy:
+
+- Billing Error (POL-101)
+- SLA Outage Credit (POL-102)
+- Promotion Not Applied (POL-103)
+- Duplicate Charge (POL-104)
+- Early Termination Fee Dispute (POL-105)
+
+This policy sets the rules that apply to all five types. Approval limits are in POL-001.
+
+## §2 Definitions
+
+- **Net monthly recurring charge (net MRC):** unit price × quantity × (1 − contract discount %). Promotional credits are not deducted when calculating net MRC.
+- **Billing period:** one calendar month (YYYY-MM). Invoices are issued on the first day of the billing period.
+- **Unit:** what the service is priced by: a site, channel, seat, line or access point.
+- **Submission date:** the date the account manager submits the request.
+- **Lookback period:** the 12 months before the submission date (see §5).
+
+## §3 Required information
+
+Every request must include:
+
+1. Customer ID
+2. Contract ID
+3. Request type
+4. The billing period or periods affected
+5. The invoice ID or IDs affected
+6. The amount requested and how it was calculated
+7. The supporting evidence that the request-type policy requires (for example, an outage ticket ID)
+
+A request missing any of these items is returned to the submitter with the outcome "Returned for Information". The review time target in POL-001 §4 starts only when the request is complete.
+
+## §4 Evidence standard
+
+Decisions are based on Maplewave system records: contracts, invoices and invoice lines, outage records and the promotion catalogue. A customer's statement on its own is not evidence. Where the customer's account and the system records disagree, the records decide, unless the submitter provides documents that show the records are wrong.
+
+## §5 Lookback limit
+
+Credits can cover billing periods up to 12 months before the submission date. Earlier billing periods are not eligible. Some request types have shorter time limits. For example, SLA outage credits must be requested within 60 days (POL-102 §5).
+
+## §6 Calculation and payment
+
+All amounts are in Canadian dollars (CAD) and before tax. Round to the cent only at the end of the calculation. An approved credit is applied to the customer's next invoice as a line called "Billing adjustment credit", followed by the request ID. If the customer has no future invoice, for example because all their contracts have ended, the credit is paid as a refund.
+
+## §7 Goodwill credits
+
+A goodwill credit is a credit that no policy supports, given to protect the customer relationship. Goodwill credits:
+
+- are limited to CAD 500 per customer in any 12 months;
+- must be labelled "Goodwill" in the decision;
+- always need Director approval, whatever the amount.
+
+Reviewers must never approve a goodwill credit as if it were a policy credit.
+
+## §8 Decision outcomes
+
+- **Approved:** the full requested amount is supported by the records.
+- **Partially Approved:** only part of the requested amount is supported. The supported part is credited.
+- **Rejected:** the records do not support a credit under any policy.
+- **Returned for Information:** one or more §3 items are missing.
+
+Every decision must state the reason and cite the policy section it relies on.
+
+## §9 Segregation of duties
+
+The person who submits a request cannot approve it. Approval thresholds are set in POL-001.
+
+## §10 AI-assisted review
+
+Maplewave may use an AI assistant to collect records, check that a request is complete, calculate the supported amount and prepare a recommendation that lists the evidence and policy sections it relied on. The AI assistant never approves or rejects a request. A human reviewer makes every decision. When the reviewer decides differently from the AI recommendation, they must record why.

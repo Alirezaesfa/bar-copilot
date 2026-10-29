@@ -1,0 +1,40 @@
+# POL-105 Early Termination Fee
+
+Maplewave Telecom (fictional company, synthetic demo data) | Version 2.0 | Effective 2026-01-01 | Owner: Billing Operations
+
+## §1 The fee
+
+When a business customer ends a contract before its end date, an early termination fee (ETF) applies:
+
+ETF = 50% × net MRC × remaining months
+
+- **Remaining months:** the full months after the termination month, up to and including the contract's last month.
+- **When it's billed:** on the contract's final invoice, which is the invoice for the termination month.
+
+Example: a contract ends in 2027-03 and is terminated in 2026-09. The remaining months run from 2026-10 to 2027-03, which is 6 months. With a net MRC of 400.00, the ETF is 50% × 400.00 × 6 = 1,200.00.
+
+## §2 Waiver conditions
+
+The ETF is waived in full only if at least one of these conditions is met:
+
+- **(a) Chronic service failure:** in the 6 billing periods up to and including the termination month, the contract had at least 3 months where measured availability was below the SLA target (POL-102 §2 to §4). Only services with an SLA can meet this condition.
+- **(b) Relocation:** the customer is moving to an address where Maplewave cannot provide the service. This must be confirmed by a serviceability check reference (an SC number).
+- **(c) Upgrade:** within 30 days of termination, the customer signs a new Maplewave contract with an equal or longer term and an equal or higher net MRC.
+
+## §3 Miscalculated fee
+
+If the ETF that was billed differs from the §1 formula, credit the difference, even if no waiver condition is met.
+
+## §4 Not grounds for a waiver
+
+- General dissatisfaction with the service
+- Outages that do not meet §2(a)
+- Lower prices from a competitor
+- The customer closing their business
+
+Exceptions can only be made as goodwill under POL-000 §7.
+
+## §5 Evidence
+
+- The termination date and the final invoice ID
+- Evidence for the waiver condition claimed: outage ticket IDs, the SC reference, or the new contract ID

@@ -1,0 +1,34 @@
+# POL-101 Billing Error (Rate Mismatch)
+
+Maplewave Telecom (fictional company, synthetic demo data) | Version 1.6 | Effective 2026-01-01 | Owner: Billing Operations
+
+## §1 Scope
+
+This policy covers a recurring charge billed at a unit price different from the unit price in the customer's contract. Disputes about quantity (for example, the number of lines or sites) and charges for services that are not on any contract are handled by the Billing Disputes team, not through billing adjustment requests.
+
+## §2 Eligibility
+
+A credit is due when the unit price on the invoice is higher than the unit price in the contract, and no signed contract amendment changed the price. Prices can only change through a signed amendment. A price increase the customer did not sign for is a billing error, even if it was applied by a system update.
+
+## §3 Calculation
+
+Credit = (invoiced unit price − contract unit price) × quantity × (1 − contract discount %) × number of affected billing periods.
+
+Only billing periods within the 12-month lookback count (POL-000 §5). If the invoiced price was wrong in some months and correct in others, count only the months where it was wrong.
+
+Worked example: the contract price is 100.00 per line, but the invoice shows 110.00 per line, for 20 lines with a 10% contract discount, over 3 months. Credit = (110.00 − 100.00) × 20 × 0.90 × 3 = 540.00.
+
+## §4 Evidence
+
+- The contract ID
+- The invoice ID for each affected billing period
+
+## §5 Ongoing errors
+
+If the most recent invoice still shows the wrong price, the reviewer must also raise a rate correction with Billing Operations, so future invoices are billed correctly. The credit covers only invoices that have already been issued.
+
+## §6 Not eligible
+
+- Billing periods where the invoiced unit price matches the contract
+- Price changes made through a signed contract amendment
+- Plan or quantity changes the customer requested
