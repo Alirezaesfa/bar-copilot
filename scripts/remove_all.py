@@ -1,4 +1,4 @@
-"""Remove spike_agent, bar_tools, and maplewave_data connection from Orchestrate."""
+"""Remove spike_agent, bar_tools, maplewave_policies KB, and maplewave_data connection from Orchestrate."""
 
 import os
 import subprocess
@@ -35,12 +35,15 @@ if not api_key:
 run([ORC, "env", "activate", "wxo-trial", "-a", api_key],
     "Activate wxo-trial env", redact=True)
 
-# Reverse order: agent → tool → connection
+# Reverse order: agent → tool → knowledge base → connection
 run([ORC, "agents", "remove", "-n", "maplewave_spike", "-k", "native"],
     "Remove agent maplewave_spike")
 
 run([ORC, "tools", "remove", "-n", "get_customer_contracts"],
     "Remove tool get_customer_contracts")
+
+run([ORC, "knowledge-bases", "remove", "--name", "maplewave_policies"],
+    "Remove knowledge base maplewave_policies")
 
 run([ORC, "connections", "remove", "-a", "maplewave_data"],
     "Remove connection maplewave_data")

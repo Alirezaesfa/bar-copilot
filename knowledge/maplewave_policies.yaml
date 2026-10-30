@@ -1,0 +1,17 @@
+spec_version: v1
+kind: knowledge_base
+name: maplewave_policies
+description: |
+  MapleWave telecom billing adjustment policies: approval authority matrix,
+  billing error types, SLA outage credits, promotion issues, duplicate charges,
+  and early termination fees.
+documents:
+  - POL-000-billing-adjustment-policy.txt
+  - POL-001-approval-authority-matrix.txt
+  - POL-101-billing-error-rate-mismatch.txt
+  - POL-102-sla-outage-credit.txt
+  - POL-103-promotion-not-applied.txt
+  - POL-104-duplicate-charge.txt
+  - POL-105-early-termination-fee.txt
+vector_index:
+  embeddings_model_name: ibm/slate-125m-english-rtrvr-v2

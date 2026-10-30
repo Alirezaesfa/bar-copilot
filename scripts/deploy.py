@@ -1,4 +1,4 @@
-"""Deploy maplewave_data connection, bar_tools, and spike_agent to Orchestrate."""
+"""Deploy maplewave_data connection, maplewave_policies KB, bar_tools, and spike_agent to Orchestrate."""
 
 import json
 import os
@@ -55,6 +55,15 @@ def connection_exists(app_id: str) -> bool:
         return app_id in result.stdout
 
 
+def kb_exists(name: str) -> bool:
+    """Return True if the knowledge base already exists in the active env."""
+    result = subprocess.run(
+        [ORC, "knowledge-bases", "list"],
+        capture_output=True, text=True,
+    )
+    return name in result.stdout
+
+
 # ------------------------------------------------------------------
 # 0. Login
 # ------------------------------------------------------------------
@@ -87,7 +96,19 @@ for env in ("draft", "live"):
         f"Set credentials ({env})", redact=True)
 
 # ------------------------------------------------------------------
-# 2. Tool  (import upserts — no --safe means auto-update)
+# 2. Knowledge base  (import upserts — idempotent)
+# ------------------------------------------------------------------
+KB_NAME = "maplewave_policies"
+KB_FILE = os.path.join(_ROOT, "knowledge", "maplewave_policies.yaml")
+
+if kb_exists(KB_NAME):
+    print(f"\n>>> Import knowledge base — already exists, skipping")
+else:
+    run([ORC, "knowledge-bases", "import", "-f", KB_FILE],
+        "Import maplewave_policies knowledge base")
+
+# ------------------------------------------------------------------
+# 3. Tool  (import upserts — no --safe means auto-update)
 # ------------------------------------------------------------------
 run([ORC, "tools", "import",
      "-k", "python",
@@ -97,14 +118,14 @@ run([ORC, "tools", "import",
     "Import bar_tools")
 
 # ------------------------------------------------------------------
-# 3. Agent  (import upserts — no --safe means auto-update)
+# 4. Agent  (import upserts — no --safe means auto-update)
 # ------------------------------------------------------------------
 run([ORC, "agents", "import",
      "-f", os.path.join(_ROOT, "agents", "spike_agent.yaml")],
     "Import spike_agent")
 
 # ------------------------------------------------------------------
-# 4. Deploy agent to live
+# 5. Deploy agent to live
 # ------------------------------------------------------------------
 run([ORC, "agents", "deploy", "-n", "maplewave_spike"],
     "Deploy spike_agent to live")
