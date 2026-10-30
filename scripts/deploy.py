@@ -1,5 +1,6 @@
 """Deploy maplewave_data connection, bar_tools, and spike_agent to Orchestrate."""
 
+import json
 import os
 import subprocess
 import sys
@@ -40,11 +41,39 @@ def build_entries() -> list[str]:
     return entries
 
 
+def connection_exists(app_id: str) -> bool:
+    """Return True if the connection already exists in the active env."""
+    result = subprocess.run(
+        [ORC, "connections", "list", "-v"],
+        capture_output=True, text=True,
+    )
+    try:
+        data = json.loads(result.stdout)
+        return any(c.get("app_id") == app_id for c in data)
+    except (json.JSONDecodeError, TypeError):
+        # Fall back to plain-text search if the output isn't JSON.
+        return app_id in result.stdout
+
+
+# ------------------------------------------------------------------
+# 0. Login
+# ------------------------------------------------------------------
+api_key = os.environ.get("WXO_API_KEY", "")
+if not api_key:
+    print("ERROR: WXO_API_KEY is not set in .env")
+    sys.exit(1)
+
+run([ORC, "env", "activate", "wxo-trial", "-a", api_key],
+    "Activate wxo-trial env", redact=True)
+
 # ------------------------------------------------------------------
 # 1. Connection
 # ------------------------------------------------------------------
-run([ORC, "connections", "add", "-a", APP_ID],
-    "Register connection")
+if connection_exists(APP_ID):
+    print(f"\n>>> Register connection — already exists, skipping add")
+else:
+    run([ORC, "connections", "add", "-a", APP_ID],
+        "Register connection")
 
 for env in ("draft", "live"):
     run([ORC, "connections", "configure",
@@ -58,7 +87,7 @@ for env in ("draft", "live"):
         f"Set credentials ({env})", redact=True)
 
 # ------------------------------------------------------------------
-# 2. Tool
+# 2. Tool  (import upserts — no --safe means auto-update)
 # ------------------------------------------------------------------
 run([ORC, "tools", "import",
      "-k", "python",
@@ -68,7 +97,7 @@ run([ORC, "tools", "import",
     "Import bar_tools")
 
 # ------------------------------------------------------------------
-# 3. Agent
+# 3. Agent  (import upserts — no --safe means auto-update)
 # ------------------------------------------------------------------
 run([ORC, "agents", "import",
      "-f", os.path.join(_ROOT, "agents", "spike_agent.yaml")],

@@ -1,0 +1,14 @@
+spec_version: v1
+kind: native
+name: maplewave_spike
+description: |
+  Spike agent for the Maplewave billing-adjustment demo.
+  Retrieves customer and contract data from watsonx.data.
+llm: watsonx/ibm/ggranite-4-h-small
+style: react_core
+instructions: |
+  You are a billing-adjustment assistant for Maplewave Telecom.
+  Always use the available tools to look up facts — never guess or invent data.
+  Present results clearly; use a table when returning multiple contracts.
+tools:
+  - get_customer_contracts

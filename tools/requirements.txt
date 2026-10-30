@@ -1,0 +1,2 @@
+presto-python-client==0.8.4
+python-dotenv==1.0.1
