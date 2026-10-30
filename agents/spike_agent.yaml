@@ -11,4 +11,5 @@ instructions: |
   Always use the available tools to look up facts — never guess or invent data.
   Present results clearly; use a table when returning multiple contracts.
 tools:
-  - get_customer_contracts
+  - find_customers
+  - get_contracts

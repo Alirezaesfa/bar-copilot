@@ -1,5 +1,6 @@
-"""Run get_customer_contracts locally using .env credentials."""
+"""Run a set of tool calls locally using .env credentials."""
 
+import datetime
 import json
 import os
 import sys
@@ -8,16 +9,50 @@ import sys
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
-from tools.bar_tools import get_customer_contracts
+from tools.bar_tools import (
+    check_rate_error,
+    check_sla_credit,
+    check_etf,
+    list_queue,
+)
 
-raw = get_customer_contracts("harbourline")
 
-# When run locally the @tool decorator wraps the result in a ToolResponse.
-# Unwrap it if needed so we can pretty-print plain JSON.
-if hasattr(raw, "content"):
-    result = raw.content
-else:
-    result = raw
+def _unwrap(raw):
+    """Unwrap ToolResponse if needed so we get plain JSON-serialisable data."""
+    return raw.content if hasattr(raw, "content") else raw
 
-print(json.dumps(result, indent=2, default=str))
-print(f"\n{len(result)} contract(s) returned.")
+
+def _show(label, raw):
+    print(f"\n{'='*60}")
+    print(f"  {label}")
+    print('='*60)
+    result = _unwrap(raw)
+    print(json.dumps(result, indent=2, default=str))
+
+
+today = datetime.date.today().isoformat()
+
+_show(
+    "check_rate_error  K-20012  2026-01 to 2026-10  as_of today",
+    check_rate_error("K-20012", "2026-01", "2026-10", today),
+)
+
+_show(
+    "check_sla_credit  K-20022  2026-08  as_of 2026-10-15",
+    check_sla_credit("K-20022", "2026-08", "2026-10-15"),
+)
+
+_show(
+    "check_etf  K-20060  'customer is unhappy and wants the fee waived'",
+    check_etf("K-20060", "customer is unhappy and wants the fee waived"),
+)
+
+_show(
+    "check_sla_credit  K-20185  2026-10  as_of today",
+    check_sla_credit("K-20185", "2026-10", today),
+)
+
+_show(
+    "list_queue",
+    list_queue(),
+)

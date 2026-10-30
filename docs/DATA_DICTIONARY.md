@@ -30,6 +30,7 @@
 | `invoice_lines.csv` | 5,826 | One line on an invoice |
 | `service_outages.csv` | 290 | One outage on one contract, with its trouble ticket |
 | `adjustment_requests.csv` | 386 | One billing adjustment request: 374 decided, 12 pending |
+| `review_decisions` | — | One AI or human decision record written against an adjustment request (Iceberg only, no CSV) |
 
 ### Key columns
 
@@ -68,6 +69,34 @@
 - `review_minutes`: reviewer effort.
 - `credit_status`, `credit_applied_invoice_id`.
 
+**review_decisions** (Iceberg/Parquet — no CSV file, no id column)
+
+Created with:
+```sql
+CREATE TABLE iceberg_data.maplewave.review_decisions (
+    request_id              VARCHAR,
+    decided_at              TIMESTAMP,
+    decided_by              VARCHAR,
+    role                    VARCHAR,
+    ai_outcome              VARCHAR,
+    ai_amount_cad           DOUBLE,
+    final_outcome           VARCHAR,
+    final_amount_cad        DOUBLE,
+    approval_level_required VARCHAR,
+    override_reason         VARCHAR,
+    notes                   VARCHAR
+) WITH (format = 'PARQUET')
+```
+
+- `request_id`: foreign key to `adjustment_requests`.
+- `decided_at`: UTC timestamp of when the decision was recorded. Used as the ordering key (there is no id column); the latest row per `request_id` is `MAX(decided_at)`.
+- `role`: the reviewer's role — `Reviewer`, `Director`, or `VP Finance Operations`.
+- `ai_outcome` / `final_outcome`: one of `Approved`, `Partially Approved`, `Rejected`, `Returned for Information`, or `Recommended - awaiting Director`.
+- `ai_amount_cad` / `final_amount_cad`: DOUBLE, amounts in CAD.
+- `approval_level_required`: computed at write time by applying POL-001 §1 to `final_amount_cad`.
+- `override_reason`: required when `final_outcome` differs from `ai_outcome`.
+- `notes`: free text, may be empty.
+
 ## How the tables connect
 
 ```
@@ -77,6 +106,7 @@ customers ──< contracts ──< invoice_lines >── invoices >── custo
                  ├── promotions (promo_code)
                  └── contracts (replaces_contract_id)
 adjustment_requests >── customers, contracts, invoices, employees (submitted_by, reviewer_id, approver_id)
+review_decisions    >── adjustment_requests (request_id)
 ```
 
 ## Rules built into the data

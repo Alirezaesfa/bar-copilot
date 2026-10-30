@@ -39,8 +39,27 @@ run([ORC, "env", "activate", "wxo-trial", "-a", api_key],
 run([ORC, "agents", "remove", "-n", "maplewave_spike", "-k", "native"],
     "Remove agent maplewave_spike")
 
-run([ORC, "tools", "remove", "-n", "get_customer_contracts"],
-    "Remove tool get_customer_contracts")
+# Lookup tools
+run([ORC, "tools", "remove", "-n", "find_customers"],      "Remove tool find_customers")
+run([ORC, "tools", "remove", "-n", "get_contracts"],       "Remove tool get_contracts")
+run([ORC, "tools", "remove", "-n", "get_invoice_lines"],   "Remove tool get_invoice_lines")
+run([ORC, "tools", "remove", "-n", "get_outages"],         "Remove tool get_outages")
+run([ORC, "tools", "remove", "-n", "get_request"],         "Remove tool get_request")
+run([ORC, "tools", "remove", "-n", "list_queue"],          "Remove tool list_queue")
+run([ORC, "tools", "remove", "-n", "get_past_decisions"],  "Remove tool get_past_decisions")
+
+# Check tools
+run([ORC, "tools", "remove", "-n", "check_rate_error"],    "Remove tool check_rate_error")
+run([ORC, "tools", "remove", "-n", "check_sla_credit"],    "Remove tool check_sla_credit")
+run([ORC, "tools", "remove", "-n", "check_promotion"],     "Remove tool check_promotion")
+run([ORC, "tools", "remove", "-n", "check_duplicates"],    "Remove tool check_duplicates")
+run([ORC, "tools", "remove", "-n", "check_etf"],           "Remove tool check_etf")
+run([ORC, "tools", "remove", "-n", "check_completeness"],  "Remove tool check_completeness")
+run([ORC, "tools", "remove", "-n", "approval_level"],      "Remove tool approval_level")
+
+# Write tools
+run([ORC, "tools", "remove", "-n", "submit_request"],      "Remove tool submit_request")
+run([ORC, "tools", "remove", "-n", "record_decision"],     "Remove tool record_decision")
 
 run([ORC, "knowledge-bases", "remove", "--name", "maplewave_policies"],
     "Remove knowledge base maplewave_policies")
