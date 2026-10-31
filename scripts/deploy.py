@@ -1,4 +1,4 @@
-"""Deploy maplewave_data connection, maplewave_policies KB, bar_tools, and spike_agent to Orchestrate."""
+"""Deploy maplewave_data connection, maplewave_policies KB, bar_tools, and intake_agent to Orchestrate."""
 
 import json
 import os
@@ -121,13 +121,13 @@ run([ORC, "tools", "import",
 # 4. Agent  (import upserts — no --safe means auto-update)
 # ------------------------------------------------------------------
 run([ORC, "agents", "import",
-     "-f", os.path.join(_ROOT, "agents", "spike_agent.yaml")],
-    "Import spike_agent")
+     "-f", os.path.join(_ROOT, "agents", "intake_agent.yaml")],
+    "Import intake_agent")
 
 # ------------------------------------------------------------------
 # 5. Deploy agent to live
 # ------------------------------------------------------------------
-run([ORC, "agents", "deploy", "-n", "maplewave_spike"],
-    "Deploy spike_agent to live")
+run([ORC, "agents", "deploy", "-n", "maplewave_bar_intake"],
+    "Deploy intake_agent to live")
 
 print("\n=== Deploy complete ===")

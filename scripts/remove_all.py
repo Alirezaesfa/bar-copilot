@@ -1,4 +1,4 @@
-"""Remove spike_agent, bar_tools, maplewave_policies KB, and maplewave_data connection from Orchestrate."""
+"""Remove intake_agent, bar_tools, maplewave_policies KB, and maplewave_data connection from Orchestrate."""
 
 import os
 import subprocess
@@ -36,10 +36,13 @@ run([ORC, "env", "activate", "wxo-trial", "-a", api_key],
     "Activate wxo-trial env", redact=True)
 
 # Reverse order: agent → tool → knowledge base → connection
+run([ORC, "agents", "remove", "-n", "maplewave_bar_intake", "-k", "native"],
+    "Remove agent maplewave_bar_intake")
 run([ORC, "agents", "remove", "-n", "maplewave_spike", "-k", "native"],
     "Remove agent maplewave_spike")
 
 # Lookup tools
+run([ORC, "tools", "remove", "-n", "get_today"],           "Remove tool get_today")
 run([ORC, "tools", "remove", "-n", "find_customers"],      "Remove tool find_customers")
 run([ORC, "tools", "remove", "-n", "get_contracts"],       "Remove tool get_contracts")
 run([ORC, "tools", "remove", "-n", "get_invoice_lines"],   "Remove tool get_invoice_lines")

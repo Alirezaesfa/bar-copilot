@@ -49,3 +49,10 @@ def test_pol_001_approval_level_thresholds():
     assert calc_approval_level(Decimal("20000.00")) == "Reviewer"
     assert calc_approval_level(Decimal("20000.01")) == "Director"
     assert calc_approval_level(Decimal("100000.01")) == "Director and VP"
+
+
+def test_pol_102_sla_tier_boundaries():
+    """POL-102 §4 uses 'more than': exactly 0.50 → 5%, exactly 1.00 → 10%, 1.01 → 25%."""
+    assert calc_sla_credit_pct(Decimal("0.50")) == Decimal("5")
+    assert calc_sla_credit_pct(Decimal("1.00")) == Decimal("10")
+    assert calc_sla_credit_pct(Decimal("1.01")) == Decimal("25")
