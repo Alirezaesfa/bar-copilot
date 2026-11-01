@@ -1313,7 +1313,12 @@ def check_etf(contract_id: str, request_text: str) -> Dict:
     etf_invoice_ids: List[str] = sorted({eid for eid in evidence_ids
                                           if str(eid).startswith("INV-")})
 
-    _etf_pol = "POL-105 §2" if (waiver_a or waiver_b or waiver_c) else "POL-105 §1"
+    if waiver_a or waiver_b or waiver_c:
+        _etf_pol = "POL-105 §2"
+    elif eligible:
+        _etf_pol = "POL-105 §1"
+    else:
+        _etf_pol = "POL-105 §4"
     return {
         "eligible": eligible,
         "amount": amount,
@@ -1851,8 +1856,7 @@ def review_request(request_id: str) -> Dict:
                     f"Credit is the difference."
                 )
             return (
-                f"The fee matches the policy formula ({billed}) and no waiver applies. "
-                f"Exceptions can only be made as goodwill under POL-000 §7."
+                f"The fee matches the policy formula ({billed}) and no waiver applies."
             )
 
         return ch.get("calculation") or "Not eligible per policy."
