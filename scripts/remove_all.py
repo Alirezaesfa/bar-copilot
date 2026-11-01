@@ -1,4 +1,4 @@
-"""Remove intake_agent, bar_tools, maplewave_policies KB, and maplewave_data connection from Orchestrate."""
+"""Remove review_agent, intake_agent, bar_tools, maplewave_policies KB, and maplewave_data connection from Orchestrate."""
 
 import os
 import subprocess
@@ -35,7 +35,9 @@ if not api_key:
 run([ORC, "env", "activate", "wxo-trial", "-a", api_key],
     "Activate wxo-trial env", redact=True)
 
-# Reverse order: agent → tool → knowledge base → connection
+# Reverse order: agents → tools → knowledge base → connection
+run([ORC, "agents", "remove", "-n", "maplewave_bar_review", "-k", "native"],
+    "Remove agent maplewave_bar_review")
 run([ORC, "agents", "remove", "-n", "maplewave_bar_intake", "-k", "native"],
     "Remove agent maplewave_bar_intake")
 run([ORC, "agents", "remove", "-n", "maplewave_spike", "-k", "native"],
@@ -60,9 +62,10 @@ run([ORC, "tools", "remove", "-n", "check_etf"],           "Remove tool check_et
 run([ORC, "tools", "remove", "-n", "check_completeness"],  "Remove tool check_completeness")
 run([ORC, "tools", "remove", "-n", "approval_level"],      "Remove tool approval_level")
 
-# Write tools
+# Write / review tools
 run([ORC, "tools", "remove", "-n", "submit_request"],      "Remove tool submit_request")
 run([ORC, "tools", "remove", "-n", "record_decision"],     "Remove tool record_decision")
+run([ORC, "tools", "remove", "-n", "review_request"],      "Remove tool review_request")
 
 run([ORC, "knowledge-bases", "remove", "--name", "maplewave_policies"],
     "Remove knowledge base maplewave_policies")

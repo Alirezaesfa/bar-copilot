@@ -11,6 +11,77 @@ from ibm_watsonx_orchestrate.agent_builder.tools import tool
 APP_ID = "maplewave_data"
 
 # ---------------------------------------------------------------------------
+# Policy quotes — word-for-word from knowledge/*.txt, keyed by section ref.
+# ---------------------------------------------------------------------------
+
+POLICY_QUOTES: Dict[str, str] = {
+    "POL-000 §3": (
+        "A request missing any of these items is returned to the submitter with "
+        'the outcome "Returned for Information". '
+        "The review time target in POL-001 §4 starts only when the request is complete."
+    ),
+    "POL-101 §2": (
+        "A credit is due when the unit price on the invoice is higher than the "
+        "unit price in the contract, and no signed contract amendment changed the price. "
+        "Prices can only change through a signed amendment."
+    ),
+    "POL-101 §3": (
+        "Credit = (invoiced unit price − contract unit price) × quantity × "
+        "(1 − contract discount %) × number of affected billing periods. "
+        "Only billing periods within the 12-month lookback count (POL-000 §5). "
+        "If the invoiced price was wrong in some months and correct in others, "
+        "count only the months where it was wrong."
+    ),
+    "POL-102 §1": (
+        "SLA credits apply only to services that have an availability target in "
+        "the contract (the SLA uptime %)."
+    ),
+    "POL-102 §4": (
+        "The credit is capped at 25% of the affected units' net MRC per month. "
+        "Units that were not affected get no credit."
+    ),
+    "POL-102 §5": (
+        "The request must be submitted within 60 days after the outage ended. "
+        "Later requests are not eligible, even if the outage qualified."
+    ),
+    "POL-103 §2": (
+        "A credit is due when all three conditions are met:"
+    ),
+    "POL-103 §3": (
+        "Credit = monthly promotional credit on the contract × number of billing "
+        "periods where the credit is missing. "
+        "If the credit was applied but was too small, credit the difference for "
+        "that month instead."
+    ),
+    "POL-104 §1": (
+        "A duplicate charge is a charge that appears more than once for the same "
+        "contract, with the same charge type and description, the same billing "
+        "period and the same amount. The copies can be on one invoice, or on "
+        "different invoices for the same billing period."
+    ),
+    "POL-104 §3": (
+        "Credit = the amount of each extra copy of the charge. If the matching "
+        "discount line was duplicated too, subtract it, so that the credit is "
+        "the net amount."
+    ),
+    "POL-105 §1": (
+        "When a business customer ends a contract before its end date, an early "
+        "termination fee (ETF) applies:"
+    ),
+    "POL-105 §2": (
+        "The ETF is waived in full only if at least one of these conditions is met:"
+    ),
+    "POL-105 §2(a)": (
+        "in the 6 billing periods up to and including the termination month, "
+        "the contract had at least 3 months where measured availability was "
+        "below the SLA target (POL-102 §2 to §4)."
+    ),
+    "POL-105 §4": (
+        "Exceptions can only be made as goodwill under POL-000 §7."
+    ),
+}
+
+# ---------------------------------------------------------------------------
 # Pure calculation functions (no DB access — testable in isolation)
 # ---------------------------------------------------------------------------
 
@@ -306,7 +377,14 @@ def get_outages(contract_id: str, from_date: str, to_date: str) -> List[Dict]:
     expected_credentials=[{"app_id": APP_ID, "type": ConnectionType.KEY_VALUE}]
 )
 def get_request(request_id: str) -> Dict:
-    """Return all columns for a single adjustment request, or empty dict if not found."""
+    """Return all columns for a single adjustment request.
+
+    Args:
+        request_id: The request ID to look up (e.g. "ADJ-10375").
+
+    Returns:
+        Dict of all adjustment_requests columns, or empty dict if not found.
+    """
     cfg = _get_cfg()
     cat = cfg["PRESTO_CATALOG"]
     sch = cfg["PRESTO_SCHEMA"]
@@ -326,7 +404,15 @@ def get_request(request_id: str) -> Dict:
     expected_credentials=[{"app_id": APP_ID, "type": ConnectionType.KEY_VALUE}]
 )
 def list_queue() -> List[Dict]:
-    """Return all Pending Review requests with the latest AI/human decision columns."""
+    """Return all Pending Review requests with customer name and current status.
+
+    Returns:
+        List of dicts with request_id, customer_id, customer_name, contract_id,
+        request_type, billing_periods, requested_amount_cad, submitted_date,
+        submitted_by, ai_outcome, ai_amount_cad, final_outcome, final_amount_cad,
+        decided_by, and status_now (latest final_outcome from review_decisions,
+        or "Pending Review" if no decision has been recorded yet).
+    """
     cfg = _get_cfg()
     cat = cfg["PRESTO_CATALOG"]
     sch = cfg["PRESTO_SCHEMA"]
@@ -334,6 +420,7 @@ def list_queue() -> List[Dict]:
         SELECT
             ar.request_id,
             ar.customer_id,
+            c.customer_name,
             ar.contract_id,
             ar.request_type,
             ar.billing_periods,
@@ -346,6 +433,7 @@ def list_queue() -> List[Dict]:
             rd.final_amount_cad,
             rd.decided_by
         FROM {cat}.{sch}.adjustment_requests ar
+        JOIN {cat}.{sch}.customers c ON c.customer_id = ar.customer_id
         LEFT JOIN (
             SELECT rd1.*
             FROM {cat}.{sch}.review_decisions rd1
@@ -367,14 +455,29 @@ def list_queue() -> List[Dict]:
         rows = cur.fetchall()
     finally:
         conn.close()
-    return [dict(zip(cols, row)) for row in rows]
+    results = []
+    for row in rows:
+        d = dict(zip(cols, row))
+        d["status_now"] = d["final_outcome"] if d.get("final_outcome") else "Pending Review"
+        results.append(d)
+    return results
 
 
 @tool(
     expected_credentials=[{"app_id": APP_ID, "type": ConnectionType.KEY_VALUE}]
 )
 def get_past_decisions(request_type: str) -> List[Dict]:
-    """Return the last 3 decided requests of the given type for precedent review."""
+    """Return the last 3 decided requests of the given type for precedent review.
+
+    Args:
+        request_type: One of "Billing Error", "SLA Outage Credit",
+            "Promotion Not Applied", "Duplicate Charge",
+            or "Early Termination Fee Dispute".
+
+    Returns:
+        List of up to 3 dicts with request_id, request_type,
+        approved_amount_cad, decision_reason, policy_reference, decision_date.
+    """
     cfg = _get_cfg()
     cat = cfg["PRESTO_CATALOG"]
     sch = cfg["PRESTO_SCHEMA"]
@@ -576,6 +679,7 @@ def check_rate_error(
             "A rate correction is also needed with Billing Operations (POL-101 §5)."
         )
 
+    _pol = "POL-101 §3" if len(periods_wrong) > 0 else "POL-101 §2"
     return {
         "eligible": len(periods_wrong) > 0,
         "amount": str(total),
@@ -587,6 +691,7 @@ def check_rate_error(
         "note": note,
         "evidence_ids": invoice_ids,
         "policy_sections": ["POL-101 §2", "POL-101 §3"],
+        "policy_quote": f"{_pol}: {POLICY_QUOTES[_pol]}",
         "periods_checked": periods_checked,
         "periods_wrong": periods_wrong,
         "latest_invoice_still_wrong": latest_invoice_still_wrong,
@@ -640,13 +745,17 @@ def check_sla_credit(contract_id: str, month: str, as_of_date: str = "") -> Dict
                 "request_type": "SLA Outage Credit", "billing_periods": month,
                 "invoice_ids": [], "calculation": "Contract not found",
                 "approval_needed": "", "note": "",
-                "evidence_ids": [], "policy_sections": ["POL-102 §2", "POL-102 §4"],
+                "evidence_ids": [], "policy_sections": ["POL-102 §1"],
+                "policy_quote": f"POL-102 §1: {POLICY_QUOTES['POL-102 §1']}",
                 "sla_eligible_service": False, "availability_pct": None,
                 "shortfall": None, "credit_tier_pct": None, "affected_units": None,
                 "days_since_outage_end": None, "within_60_days": False,
+                "service_code": None, "quantity": None,
             }
 
+        service_code = crow[0]
         sla_uptime_str = crow[1]
+        quantity = int(crow[4]) if crow[4] is not None else None
         sla_eligible_service = sla_uptime_str is not None and str(sla_uptime_str).strip() != ""
         if not sla_eligible_service:
             return {
@@ -654,10 +763,12 @@ def check_sla_credit(contract_id: str, month: str, as_of_date: str = "") -> Dict
                 "request_type": "SLA Outage Credit", "billing_periods": month,
                 "invoice_ids": [], "calculation": "Service has no SLA",
                 "approval_needed": "", "note": "",
-                "evidence_ids": [], "policy_sections": ["POL-102 §2", "POL-102 §4"],
+                "evidence_ids": [], "policy_sections": ["POL-102 §1"],
+                "policy_quote": f"POL-102 §1: {POLICY_QUOTES['POL-102 §1']}",
                 "sla_eligible_service": False, "availability_pct": None,
                 "shortfall": None, "credit_tier_pct": None, "affected_units": None,
                 "days_since_outage_end": None, "within_60_days": False,
+                "service_code": service_code, "quantity": quantity,
             }
 
         sla_target = Decimal(str(sla_uptime_str))
@@ -702,10 +813,12 @@ def check_sla_credit(contract_id: str, month: str, as_of_date: str = "") -> Dict
             "request_type": "SLA Outage Credit", "billing_periods": month,
             "invoice_ids": [], "calculation": "No Network outages in month",
             "approval_needed": "", "note": "",
-            "evidence_ids": [], "policy_sections": ["POL-102 §2", "POL-102 §4"],
+            "evidence_ids": [], "policy_sections": ["POL-102 §4"],
+            "policy_quote": f"POL-102 §4: {POLICY_QUOTES['POL-102 §4']}",
             "sla_eligible_service": True, "availability_pct": str(Decimal("100")),
             "shortfall": "0", "credit_tier_pct": "0", "affected_units": 0,
             "days_since_outage_end": None, "within_60_days": False,
+            "service_code": service_code, "quantity": quantity,
         }
 
     total_outage_minutes = sum(r[2] for r in outage_rows)
@@ -740,6 +853,7 @@ def check_sla_credit(contract_id: str, month: str, as_of_date: str = "") -> Dict
         f" = {credit:,.2f}"
     )
 
+    _sla_pol = "POL-102 §5" if not within_60_days else "POL-102 §4"
     return {
         "eligible": eligible,
         "amount": str(credit),
@@ -751,6 +865,7 @@ def check_sla_credit(contract_id: str, month: str, as_of_date: str = "") -> Dict
         "note": "" if within_60_days else "Outage is outside the 60-day filing window (POL-102 §5).",
         "evidence_ids": ticket_ids,
         "policy_sections": ["POL-102 §2", "POL-102 §4", "POL-102 §5"],
+        "policy_quote": f"{_sla_pol}: {POLICY_QUOTES[_sla_pol]}",
         "sla_eligible_service": True,
         "availability_pct": str(availability),
         "shortfall": str(shortfall),
@@ -758,6 +873,7 @@ def check_sla_credit(contract_id: str, month: str, as_of_date: str = "") -> Dict
         "affected_units": max_affected_units,
         "days_since_outage_end": days_since,
         "within_60_days": within_60_days,
+        "service_code": service_code, "quantity": quantity,
     }
 
 
@@ -802,7 +918,8 @@ def check_promotion(contract_id: str, from_period: str = "", to_period: str = ""
                 "request_type": "Promotion Not Applied", "billing_periods": "",
                 "invoice_ids": [], "calculation": "No promotion on contract",
                 "approval_needed": "", "note": "",
-                "evidence_ids": [], "policy_sections": ["POL-103 §2", "POL-103 §3"],
+                "evidence_ids": [], "policy_sections": ["POL-103 §2"],
+                "policy_quote": f"POL-103 §2: {POLICY_QUOTES['POL-103 §2']}",
                 "promo_code": None, "promo_period": None, "periods_missing": [],
             }
 
@@ -854,7 +971,8 @@ def check_promotion(contract_id: str, from_period: str = "", to_period: str = ""
             "request_type": "Promotion Not Applied", "billing_periods": "",
             "invoice_ids": [], "calculation": "Requested range outside promo period",
             "approval_needed": "", "note": "",
-            "evidence_ids": [], "policy_sections": ["POL-103 §2", "POL-103 §3"],
+            "evidence_ids": [], "policy_sections": ["POL-103 §2"],
+            "policy_quote": f"POL-103 §2: {POLICY_QUOTES['POL-103 §2']}",
             "promo_code": promo_code, "promo_period": f"{promo_start} to {promo_end}",
             "periods_missing": [],
         }
@@ -886,6 +1004,7 @@ def check_promotion(contract_id: str, from_period: str = "", to_period: str = ""
         f" = {total_cents:,.2f}"
     ) if n > 0 else "No missing or short promotional credits"
 
+    _promo_pol = "POL-103 §3" if total > 0 else "POL-103 §2"
     return {
         "eligible": total > 0,
         "amount": str(total_cents),
@@ -897,6 +1016,7 @@ def check_promotion(contract_id: str, from_period: str = "", to_period: str = ""
         "note": "",
         "evidence_ids": evidence_ids,
         "policy_sections": ["POL-103 §2", "POL-103 §3"],
+        "policy_quote": f"{_promo_pol}: {POLICY_QUOTES[_promo_pol]}",
         "promo_code": promo_code,
         "promo_period": f"{promo_start} to {promo_end}",
         "periods_missing": periods_missing,
@@ -979,6 +1099,7 @@ def check_duplicates(contract_id: str, period: str) -> Dict:
         if n_dup > 0 else "No duplicate Recurring lines found"
     )
 
+    _dup_pol = "POL-104 §3" if total > 0 else "POL-104 §1"
     return {
         "eligible": total > 0,
         "amount": str(total_dup),
@@ -990,6 +1111,7 @@ def check_duplicates(contract_id: str, period: str) -> Dict:
         "note": "",
         "evidence_ids": evidence_ids,
         "policy_sections": ["POL-104 §1", "POL-104 §3"],
+        "policy_quote": f"{_dup_pol}: {POLICY_QUOTES[_dup_pol]}",
         "duplicate_sets": duplicate_sets,
     }
 
@@ -1100,6 +1222,7 @@ def check_etf(contract_id: str, request_text: str) -> Dict:
         # Waiver A: chronic SLA failure (only if SLA service)
         waiver_a = False
         months_below_sla = 0
+        months_below_sla_list: List[str] = []
         if sla_uptime_str is not None and str(sla_uptime_str).strip() != "":
             import calendar
             sla_target = Decimal(str(sla_uptime_str))
@@ -1131,6 +1254,7 @@ def check_etf(contract_id: str, request_text: str) -> Dict:
                 avail = calc_sla_availability(om, month_mins)
                 if avail < sla_target:
                     months_below_sla += 1
+                    months_below_sla_list.append(f"{wy:04d}-{wm:02d}")
             waiver_a = months_below_sla >= 3
 
         # Waiver B: relocation SC- number
@@ -1189,6 +1313,7 @@ def check_etf(contract_id: str, request_text: str) -> Dict:
     etf_invoice_ids: List[str] = sorted({eid for eid in evidence_ids
                                           if str(eid).startswith("INV-")})
 
+    _etf_pol = "POL-105 §2" if (waiver_a or waiver_b or waiver_c) else "POL-105 §1"
     return {
         "eligible": eligible,
         "amount": amount,
@@ -1196,13 +1321,15 @@ def check_etf(contract_id: str, request_text: str) -> Dict:
         "billing_periods": term_period_str,
         "invoice_ids": etf_invoice_ids,
         "calculation": calc_str,
-        "approval_needed": calc_approval_level(amount_dec) if eligible else "",
+        "approval_needed": calc_approval_level(amount_dec) if eligible else "Reviewer",
         "note": "",
         "evidence_ids": evidence_ids,
         "policy_sections": ["POL-105 §1", "POL-105 §2"],
+        "policy_quote": f"{_etf_pol}: {POLICY_QUOTES[_etf_pol]}",
         "billed_etf": str(billed_etf),
         "expected_etf": str(expected_etf),
-        "waiver_a": {"qualifies": waiver_a, "months_below_sla": months_below_sla},
+        "waiver_a": {"qualifies": waiver_a, "months_below_sla": months_below_sla,
+                     "months_below_sla_list": months_below_sla_list},
         "waiver_b": {"qualifies": waiver_b, "sc_number": sc_number},
         "waiver_c": {"qualifies": waiver_c, "new_contract_id": new_contract_id},
     }
@@ -1212,7 +1339,15 @@ def check_etf(contract_id: str, request_text: str) -> Dict:
     expected_credentials=[{"app_id": APP_ID, "type": ConnectionType.KEY_VALUE}]
 )
 def check_completeness(request_id: str) -> Dict:
-    """Check whether an adjustment request has all POL-000 §3 required fields."""
+    """Check whether an adjustment request has all POL-000 §3 required fields.
+
+    Args:
+        request_id: The request ID to check (e.g. "ADJ-10375").
+
+    Returns:
+        Dict with keys complete (bool), missing_items (list of str describing
+        each gap), and policy_sections (list).
+    """
     import re
     cfg = _get_cfg()
     cat = cfg["PRESTO_CATALOG"]
@@ -1270,7 +1405,15 @@ def check_completeness(request_id: str) -> Dict:
     expected_credentials=[{"app_id": APP_ID, "type": ConnectionType.KEY_VALUE}]
 )
 def approval_level(amount: float) -> Dict:
-    """Return the required approval level for a given credit amount per POL-001 §1."""
+    """Return the required approval level for a given credit amount per POL-001 §1.
+
+    Args:
+        amount: Credit amount in CAD (positive float).
+
+    Returns:
+        Dict with keys level (str: "Reviewer", "Director", or "Director and VP")
+        and policy_section (str).
+    """
     level = calc_approval_level(Decimal(str(amount)))
     return {"level": level, "policy_section": "POL-001 §1"}
 
@@ -1293,7 +1436,23 @@ def submit_request(
     evidence_provided: str,
     submitted_by: str,
 ) -> Dict:
-    """Insert a new adjustment request and return its generated request_id."""
+    """Insert a new adjustment request and return its generated request_id.
+
+    Args:
+        customer_id: Customer ID (e.g. "CUS-00042").
+        contract_id: Contract ID (e.g. "K-20012").
+        invoice_id: Comma-separated invoice ID(s) (e.g. "INV-1001,INV-1002").
+        request_type: One of the five request type strings.
+        billing_periods: One period or range (e.g. "2026-01 to 2026-10").
+        requested_amount_cad: Amount requested in CAD.
+        description: Free-text description of the issue from the account manager.
+        evidence_provided: Comma-separated evidence IDs (invoice IDs, ticket IDs).
+        submitted_by: Employee ID of the submitting account manager; auto-filled
+            from the customer record if empty.
+
+    Returns:
+        Dict with keys request_id (str) and submitted_date (str YYYY-MM-DD).
+    """
     import datetime
     cfg = _get_cfg()
     cat = cfg["PRESTO_CATALOG"]
@@ -1352,7 +1511,22 @@ def record_decision(
     override_reason: str,
     notes: str,
 ) -> Dict:
-    """Record an AI or human decision against an adjustment request."""
+    """Record an AI or human decision against an adjustment request.
+
+    Args:
+        request_id: The request to decide (e.g. "ADJ-10375").
+        decided_by: Employee ID or full name of the reviewer or director.
+        ai_outcome: AI-recommended outcome from review_request (e.g. "Approved").
+        ai_amount_cad: AI-recommended amount from review_request.
+        final_outcome: The person's chosen outcome.
+        final_amount_cad: The person's chosen amount.
+        override_reason: Required when final differs from AI recommendation.
+        notes: Optional free-text notes.
+
+    Returns:
+        Dict with keys request_id, final_outcome (may be escalated to
+        "Recommended - awaiting Director"), and decided_at (ISO timestamp).
+    """
     import datetime
     cfg = _get_cfg()
     cat = cfg["PRESTO_CATALOG"]
@@ -1422,4 +1596,298 @@ def record_decision(
         "request_id": request_id,
         "final_outcome": saved_outcome,
         "decided_at": decided_at.isoformat(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Review tool (read-only, deterministic recommendation)
+# ---------------------------------------------------------------------------
+
+@tool(
+    expected_credentials=[{"app_id": APP_ID, "type": ConnectionType.KEY_VALUE}]
+)
+def review_request(request_id: str) -> Dict:
+    """Review an adjustment request and return a deterministic recommendation.
+
+    Runs completeness checks (POL-000 §3, §8) then the appropriate eligibility
+    check tool.  The recommendation comes entirely from code — the model must
+    not change any number.
+
+    Args:
+        request_id: The request ID to review (e.g. "ADJ-10375").
+
+    Returns:
+        Dict with keys:
+            request_id, customer_name, request_type, requested_amount (str),
+            recommended_outcome (str), recommended_amount (str),
+            approval_needed (str), reason (str), calculation (str),
+            invoice_ids (list), evidence (list), policy_sections (list),
+            policy_quote (str), note (str).
+    """
+    import re
+
+    def _unwrap(v):
+        """Extract plain dict/list from a ToolResponse if wrapped."""
+        return v.content if hasattr(v, "content") else v
+
+    # --- 1. Fetch the request ------------------------------------------------
+    req = _unwrap(get_request(request_id))
+    if not req:
+        return {
+            "request_id": request_id,
+            "customer_name": "",
+            "request_type": "",
+            "requested_amount": "0.00",
+            "recommended_outcome": "Returned for Information",
+            "recommended_amount": "0.00",
+            "approval_needed": "Reviewer",
+            "reason": "Request not found.",
+            "calculation": "",
+            "invoice_ids": [],
+            "evidence": [],
+            "policy_sections": ["POL-000 §3"],
+            "policy_quote": f"POL-000 §3: {POLICY_QUOTES['POL-000 §3']}",
+            "note": "",
+        }
+
+    # --- 2. Look up customer name -------------------------------------------
+    cfg = _get_cfg()
+    cat = cfg["PRESTO_CATALOG"]
+    sch = cfg["PRESTO_SCHEMA"]
+    conn = _connect(cfg)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT customer_name FROM {cat}.{sch}.customers WHERE customer_id = ?",
+            [req.get("customer_id", "")],
+        )
+        crow = cur.fetchone()
+    finally:
+        conn.close()
+    customer_name = crow[0] if crow else ""
+
+    requested_amount = Decimal(str(req.get("requested_amount_cad") or "0"))
+    request_type = str(req.get("request_type") or "")
+    contract_id = str(req.get("contract_id") or "")
+    billing_periods = str(req.get("billing_periods") or "")
+    submitted_date = str(req.get("submitted_date") or "")
+    description = str(req.get("description") or "")
+    evidence_provided = str(req.get("evidence_provided") or "")
+
+    # --- 3. Completeness check (inline, same logic as check_completeness) ---
+    def _present(val):
+        return val is not None and str(val).strip() != ""
+
+    missing = []
+    if not _present(req.get("customer_id")):
+        missing.append("customer_id missing")
+    if not _present(req.get("contract_id")):
+        missing.append("contract_id missing")
+    if not _present(req.get("request_type")):
+        missing.append("request_type missing")
+    if not _present(req.get("billing_periods")):
+        missing.append("billing_periods missing")
+    if not _present(req.get("invoice_id")):
+        missing.append("invoice_id missing")
+    amt = req.get("requested_amount_cad")
+    if not _present(amt) or Decimal(str(amt)) <= 0:
+        missing.append("requested_amount_cad missing or zero")
+    if request_type == "SLA Outage Credit":
+        if not re.search(r"TKT-\d+", (evidence_provided + " " + description)):
+            missing.append("TKT- ticket ID required for SLA Outage Credit (POL-000 §8)")
+
+    if missing:
+        return {
+            "request_id": request_id,
+            "customer_name": customer_name,
+            "request_type": request_type,
+            "requested_amount": f"{requested_amount:.2f}",
+            "recommended_outcome": "Returned for Information",
+            "recommended_amount": "0.00",
+            "approval_needed": "Reviewer",
+            "reason": "Missing required fields: " + "; ".join(missing) + ".",
+            "calculation": "",
+            "invoice_ids": [],
+            "evidence": [],
+            "policy_sections": ["POL-000 §3"],
+            "policy_quote": f"POL-000 §3: {POLICY_QUOTES['POL-000 §3']}",
+            "note": "",
+        }
+
+    # --- 4. Parse billing_periods into from/to for tools that need a range --
+    # Formats: "YYYY-MM" or "YYYY-MM to YYYY-MM"
+    bp_parts = billing_periods.split(" to ")
+    bp_from = bp_parts[0].strip()
+    bp_to = bp_parts[-1].strip()  # same as from if single period
+
+    as_of = submitted_date[:10] if submitted_date else ""
+
+    # --- 5. Run the matching check tool ------------------------------------
+    check: Dict = {}
+    if request_type == "Billing Error":
+        check = _unwrap(check_rate_error(contract_id, bp_from, bp_to, as_of))
+    elif request_type == "SLA Outage Credit":
+        # check_sla_credit takes a single month
+        check = _unwrap(check_sla_credit(contract_id, bp_from, as_of))
+    elif request_type == "Promotion Not Applied":
+        check = _unwrap(check_promotion(contract_id, bp_from, bp_to))
+    elif request_type == "Duplicate Charge":
+        check = _unwrap(check_duplicates(contract_id, bp_from))
+    elif request_type == "Early Termination Fee Dispute":
+        check = _unwrap(check_etf(contract_id, description + " " + evidence_provided))
+    else:
+        return {
+            "request_id": request_id,
+            "customer_name": customer_name,
+            "request_type": request_type,
+            "requested_amount": f"{requested_amount:.2f}",
+            "recommended_outcome": "Returned for Information",
+            "recommended_amount": "0.00",
+            "approval_needed": "Reviewer",
+            "reason": f"Unknown request_type: {request_type}",
+            "calculation": "",
+            "invoice_ids": [],
+            "evidence": [],
+            "policy_sections": ["POL-000 §3"],
+            "policy_quote": f"POL-000 §3: {POLICY_QUOTES['POL-000 §3']}",
+            "note": "",
+        }
+
+    # Normalise check values
+    supported = Decimal(str(check.get("amount") or "0"))
+    eligible = bool(check.get("eligible"))
+
+    # --- 6. Build plain-language reason from check facts --------------------
+    def _build_reason(rt: str, ch: Dict, eligible: bool) -> str:
+        """Build a plain-English reason sentence from the check result facts."""
+        if rt == "Billing Error":
+            pw = ch.get("periods_wrong") or []
+            pc = ch.get("periods_checked") or []
+            if not eligible:
+                if not pw:
+                    return (
+                        f"Invoiced unit price matches the contract price in all "
+                        f"{len(pc)} period(s) checked. No billing error found."
+                    )
+                return ch.get("calculation") or "Not eligible per policy."
+            # Partially or fully approved — say which months were wrong
+            months = ", ".join(pw)
+            return (
+                f"Invoice price exceeded the contract price in {len(pw)} of the "
+                f"{len(pc)} period(s) checked ({months})."
+            )
+
+        if rt == "SLA Outage Credit":
+            sla_ok = ch.get("sla_eligible_service")
+            if not sla_ok:
+                svc = ch.get("service_code") or contract_id
+                return f"{svc} has no SLA, so it cannot get an SLA credit."
+            days = ch.get("days_since_outage_end")
+            w60 = ch.get("within_60_days")
+            units = ch.get("affected_units") or 0
+            quantity = ch.get("quantity")
+            ticket_ids = ch.get("evidence_ids") or []
+            ticket = ticket_ids[0] if ticket_ids else "the outage"
+            if not w60 and days is not None:
+                return (
+                    f"Submitted {days} days after the outage ended. "
+                    f"The limit is 60 days."
+                )
+            if not eligible:
+                return ch.get("calculation") or "Not eligible per policy."
+            if quantity:
+                return (
+                    f"Outage {ticket} affected {units} of the {quantity} units on the contract."
+                )
+            return (
+                f"Outage {ticket} affected {units} unit(s)."
+            )
+
+        if rt == "Promotion Not Applied":
+            pm = ch.get("periods_missing") or []
+            if not eligible:
+                if not pm:
+                    return "No missing or short promotional credits found in the requested period."
+                return ch.get("calculation") or "Not eligible per policy."
+            months = ", ".join(pm)
+            return f"Promotional credit missing in {months}."
+
+        if rt == "Duplicate Charge":
+            ds = ch.get("duplicate_sets") or []
+            if not eligible:
+                return "No duplicate Recurring charges found for this contract and period."
+            parts = []
+            inv_ids = ch.get("invoice_ids") or []
+            inv_str = ", ".join(inv_ids) if inv_ids else "the invoice"
+            for d in ds:
+                parts.append(f'{d["description"]} (extra copy on {inv_str})')
+            return "Duplicate charge found: " + "; ".join(parts) + "."
+
+        if rt == "Early Termination Fee Dispute":
+            wa = ch.get("waiver_a") or {}
+            wb = ch.get("waiver_b") or {}
+            wc = ch.get("waiver_c") or {}
+            n_months = wa.get("months_below_sla", 0)
+            months_list = wa.get("months_below_sla_list") or []
+            if wa.get("qualifies"):
+                months_str = ", ".join(months_list) if months_list else f"{n_months} months"
+                return (
+                    f"Chronic failure waiver applies: "
+                    f"in the 6 billing periods up to and including the termination month, "
+                    f"the contract had at least 3 months where measured availability was "
+                    f"below the SLA target (POL-102 §2 to §4) — specifically {months_str}."
+                )
+            if wb.get("qualifies"):
+                sc = wb.get("sc_number", "")
+                return f"Relocation waiver applies: serviceability check {sc} on file."
+            if wc.get("qualifies"):
+                new_c = wc.get("new_contract_id", "")
+                return f"Upgrade waiver applies: replacement contract {new_c} signed within 30 days."
+            billed = ch.get("billed_etf", "")
+            expected = ch.get("expected_etf", "")
+            if eligible:
+                return (
+                    f"ETF was miscalculated: billed {billed}, policy formula gives {expected}. "
+                    f"Credit is the difference."
+                )
+            return (
+                f"The fee matches the policy formula ({billed}) and no waiver applies. "
+                f"Exceptions can only be made as goodwill under POL-000 §7."
+            )
+
+        return ch.get("calculation") or "Not eligible per policy."
+
+    reason = _build_reason(request_type, check, eligible)
+
+    # --- 7. Derive recommendation ------------------------------------------
+    if not eligible:
+        recommended_outcome = "Rejected"
+        recommended_amount = Decimal("0.00")
+    elif supported >= requested_amount:
+        recommended_outcome = "Approved"
+        recommended_amount = requested_amount
+    else:
+        recommended_outcome = "Partially Approved"
+        recommended_amount = supported
+
+    # approval_needed is always set — Reviewer for zero-amount outcomes too
+    approval = calc_approval_level(recommended_amount) if recommended_amount > 0 else "Reviewer"
+
+    policy_quote = check.get("policy_quote") or ""
+
+    return {
+        "request_id": request_id,
+        "customer_name": customer_name,
+        "request_type": request_type,
+        "requested_amount": f"{requested_amount:.2f}",
+        "recommended_outcome": recommended_outcome,
+        "recommended_amount": f"{recommended_amount:.2f}",
+        "approval_needed": approval,
+        "reason": reason,
+        "calculation": check.get("calculation") or "",
+        "invoice_ids": check.get("invoice_ids") or [],
+        "evidence": check.get("evidence_ids") or [],
+        "policy_sections": check.get("policy_sections") or [],
+        "policy_quote": policy_quote,
+        "note": check.get("note") or "",
     }

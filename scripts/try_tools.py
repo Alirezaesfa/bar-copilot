@@ -14,6 +14,7 @@ from tools.bar_tools import (
     check_sla_credit,
     check_etf,
     list_queue,
+    review_request,
 )
 
 
@@ -56,3 +57,23 @@ _show(
     "list_queue",
     list_queue(),
 )
+
+# ---------------------------------------------------------------------------
+# review_request for all 12 pending requests (ADJ-10375 to ADJ-10386)
+# ---------------------------------------------------------------------------
+print(f"\n{'='*60}")
+print("  review_request — ADJ-10375 to ADJ-10386")
+print('='*60)
+
+for n in range(10375, 10387):
+    rid = f"ADJ-{n:05d}"
+    raw = review_request(rid)
+    r = _unwrap(raw)
+    outcome = r.get("recommended_outcome", "")
+    amount = r.get("recommended_amount", "0.00")
+    approval = r.get("approval_needed", "")
+    reason = r.get("reason", "")
+    policy_quote = r.get("policy_quote", "")
+    print(f"\n{rid}  {outcome}  ${float(amount):,.2f}  {approval}")
+    print(f"  Reason: {reason}")
+    print(f"  Policy: {policy_quote}")

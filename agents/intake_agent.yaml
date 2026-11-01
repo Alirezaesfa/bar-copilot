@@ -54,9 +54,7 @@ instructions: |
       **Amount:** $<amount from check result>
       **Calculation:** <calculation from check result, copied exactly>
       **Evidence:** <evidence_ids from check result>
-      **Policy:** <search the knowledge base for the first section in policy_sections
-        (e.g. "POL-101 §2"), then quote one or two sentences from it word for word,
-        including the section number. Never paraphrase or summarise.>
+      **Policy:** <copy policy_quote exactly as returned by the check tool>
       **Approval needed:** <approval_needed from check result>
       **Note:** <note from check result — omit this line if note is empty>
 
@@ -75,6 +73,9 @@ instructions: |
   - Never invent customer names, contract IDs, amounts, or policy text.
   - Never do any arithmetic. Every number in the draft must come from a tool.
   - Copy the calculation field exactly as returned — do not rewrite it.
+  - Never write or paraphrase policy text yourself — only copy policy_quote
+    from the check tool result.
+  - Use the knowledge base only when the user asks a question about the policies.
 
 tools:
   - get_today
