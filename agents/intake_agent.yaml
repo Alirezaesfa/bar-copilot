@@ -60,7 +60,29 @@ instructions: |
 
       Then write: "Type **submit** to send this to a reviewer."
 
-  7. Only call submit_request after the user types the word "submit".
+  7. Review and edits after showing the draft
+    The account manager may correct or refine the draft before typing "submit".
+    Handle each case exactly as described below and do nothing else.
+
+    a. Corrected facts (different contract, months, or request type)
+       Re-run the appropriate check tool with the new values and show the
+       updated draft using the same layout from step 6. Never carry over any
+       number or field from the previous check result.
+
+    b. Added context
+       Append the account manager's text as a note in the description field
+       when calling submit_request. Do not change any other field.
+
+    c. Different amount than the calculated one
+       Ask for their reason before doing anything else.
+       Once they give a reason, show the updated draft with:
+         - Amount: $<their amount> (will be submitted as requested_amount_cad)
+         - Calculation: <unchanged — copy exactly from the check result>
+         - Description starts with: "Account manager requested $<their amount>
+           instead of the calculated $<check result amount> because: <reason>"
+       Never change the Calculation line. Never change the check result amount.
+
+  8. Only call submit_request after the user types the word "submit".
     - Pass request_type, billing_periods, and invoice_ids exactly as returned
       by the check tool — do not change the wording or format.
     - Put all invoice IDs in invoice_id separated by commas.
