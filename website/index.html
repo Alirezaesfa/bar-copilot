@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MapleWave — BAR Review Copilot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      background: #f7f8fa;
+      color: #1f2328;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 16px 24px;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2328;
+      letter-spacing: -0.3px;
+    }
+
+    header h1 span {
+      color: #3b82d4;
+    }
+
+    header p {
+      font-size: 13px;
+      color: #57606a;
+      margin-top: 2px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #root {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Maple<span>Wave</span></h1>
+    <p>BAR Review Copilot</p>
+  </header>
+
+  <main>
+    <div id="root"></div>
+  </main>
+
+  <script>
+    window.wxOConfiguration = {
+      orchestrationID: "20261028-0453-0242-20f3-a85a5dea14b7_20261028-0453-4767-306c-1cba97d6329c",
+      hostURL: "https://dl.watson-orchestrate.ibm.com",
+      rootElementID: "root",
+      chatOptions: {
+        agentId: "2e59a8aa-efae-4f5f-87a1-b75d0116ace5",
+      }
+    };
+    setTimeout(function () {
+      const script = document.createElement('script');
+      script.src = `${window.wxOConfiguration.hostURL}/wxochat/wxoLoader.js?embed=true`;
+      script.addEventListener('load', function () {
+        wxoLoader.init();
+      });
+      document.head.appendChild(script);
+    }, 0);
+  </script>
+
+</body>
+</html>

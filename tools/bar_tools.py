@@ -246,7 +246,9 @@ def get_contracts(customer_id: str) -> List[Dict]:
     Returns:
         List of contract dicts with contract_id, service_code, service_name,
         quantity, unit_price_cad, discount_pct, net_mrc_cad, status, start_date,
-        end_date, sla_uptime_pct, promo_code.
+        end_date, sla_uptime_pct, promo_code, term_months, termination_date,
+        replaces_contract_id, promo_monthly_credit_cad, promo_start_period,
+        promo_end_period.
     """
     cfg = _get_cfg()
     cat = cfg["PRESTO_CATALOG"]
@@ -264,7 +266,13 @@ def get_contracts(customer_id: str) -> List[Dict]:
             co.start_date,
             co.end_date,
             co.sla_uptime_pct,
-            co.promo_code
+            co.promo_code,
+            co.term_months,
+            co.termination_date,
+            co.replaces_contract_id,
+            co.promo_monthly_credit_cad,
+            co.promo_start_period,
+            co.promo_end_period
         FROM {cat}.{sch}.contracts co
         JOIN {cat}.{sch}.services  s ON s.service_code = co.service_code
         WHERE co.customer_id = ?
@@ -945,6 +953,18 @@ def check_promotion(contract_id: str, from_period: str = "", to_period: str = ""
             [contract_id, effective_from, effective_to],
         )
         credited_rows = cur.fetchall()
+
+        # Fetch one invoice ID per billing period in range (for missing-month evidence)
+        cur.execute(
+            f"""SELECT inv.billing_period, MIN(inv.invoice_id)
+                FROM {cat}.{sch}.invoices inv
+                JOIN {cat}.{sch}.invoice_lines il ON il.invoice_id = inv.invoice_id
+                WHERE il.contract_id = ?
+                  AND inv.billing_period BETWEEN ? AND ?
+                GROUP BY inv.billing_period""",
+            [contract_id, effective_from, effective_to],
+        )
+        invoice_by_period = {r[0]: r[1] for r in cur.fetchall()}
     finally:
         conn.close()
 
@@ -980,21 +1000,24 @@ def check_promotion(contract_id: str, from_period: str = "", to_period: str = ""
     periods = _periods_in_range(req_start, req_end)
     total = Decimal("0.00")
     periods_missing = []
-    evidence_ids = []
+    missing_inv_ids: list = []   # invoices for months where credit is missing or short
     for p in periods:
         if p not in credited_by_period:
             total += monthly_credit
             periods_missing.append(p)
+            if p in invoice_by_period:
+                missing_inv_ids.append(invoice_by_period[p])
         else:
             actual, inv_id = credited_by_period[p]
-            evidence_ids.append(inv_id)
             diff = monthly_credit - abs(actual)
             if diff > 0:
                 total += diff
                 periods_missing.append(p)
+                missing_inv_ids.append(inv_id)
 
     total_cents = _cents(total)
-    invoice_ids_promo: List[str] = sorted(set(evidence_ids))
+    invoice_ids_promo: List[str] = sorted(set(missing_inv_ids))
+    evidence_ids: list = invoice_ids_promo
     n = len(periods_missing)
     bp_promo = (periods_missing[0] if n == 1
                 else f"{periods_missing[0]} to {periods_missing[-1]}" if n > 1
@@ -1092,7 +1115,7 @@ def check_duplicates(contract_id: str, period: str) -> Dict:
     total_dup = _cents(total)
     # invoice IDs only (no line IDs) from duplicate groups
     inv_ids_only: List[str] = sorted({eid for eid in evidence_ids
-                                       if not str(eid).startswith("L-")})
+                                       if str(eid).startswith("INV-")})
     n_dup = len(duplicate_sets)
     calc_dup_str = (
         f"{n_dup} duplicate set{'s' if n_dup != 1 else ''} found: {total_dup:,.2f}"
@@ -1623,7 +1646,8 @@ def review_request(request_id: str) -> Dict:
 
     Returns:
         Dict with keys:
-            request_id, customer_name, request_type, requested_amount (str),
+            request_id, customer_id, contract_id, billing_periods,
+            customer_name, request_type, requested_amount (str),
             recommended_outcome (str), recommended_amount (str),
             approval_needed (str), reason (str), calculation (str),
             invoice_ids (list), evidence (list), policy_sections (list),
@@ -1640,6 +1664,9 @@ def review_request(request_id: str) -> Dict:
     if not req:
         return {
             "request_id": request_id,
+            "customer_id": "",
+            "contract_id": "",
+            "billing_periods": "",
             "customer_name": "",
             "request_type": "",
             "requested_amount": "0.00",
@@ -1704,6 +1731,9 @@ def review_request(request_id: str) -> Dict:
     if missing:
         return {
             "request_id": request_id,
+            "customer_id": str(req.get("customer_id") or ""),
+            "contract_id": contract_id,
+            "billing_periods": billing_periods,
             "customer_name": customer_name,
             "request_type": request_type,
             "requested_amount": f"{requested_amount:.2f}",
@@ -1743,6 +1773,9 @@ def review_request(request_id: str) -> Dict:
     else:
         return {
             "request_id": request_id,
+            "customer_id": str(req.get("customer_id") or ""),
+            "contract_id": contract_id,
+            "billing_periods": billing_periods,
             "customer_name": customer_name,
             "request_type": request_type,
             "requested_amount": f"{requested_amount:.2f}",
@@ -1881,6 +1914,9 @@ def review_request(request_id: str) -> Dict:
 
     return {
         "request_id": request_id,
+        "customer_id": str(req.get("customer_id") or ""),
+        "contract_id": contract_id,
+        "billing_periods": billing_periods,
         "customer_name": customer_name,
         "request_type": request_type,
         "requested_amount": f"{requested_amount:.2f}",

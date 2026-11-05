@@ -134,3 +134,19 @@ scripts/         deploy.py, try_tools.py, check_data.py, remove_all.py
 tests/           test_calculations.py, test_policy_quotes.py
 docs/            DATA_DICTIONARY.md
 ```
+
+## Website
+
+Two simple branded pages, one per agent. A single command starts both:
+
+```
+python website\serve.py
+```
+
+| Agent | URL |
+|---|---|
+| BAR Review Copilot | http://localhost:8000/index.html |
+| BAR Intake Assistant | http://localhost:8001/intake.html |
+
+---
+
